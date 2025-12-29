@@ -1,53 +1,50 @@
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = "chandrika2002/devops-project-3"
-        KUBECONFIG = "/etc/rancher/k3s/k3s.yaml"
-    }
-
     stages {
 
         stage('Clone Repo') {
             steps {
-                git 'https://github.com/Chandrika1112/devops-project-3.git'
+                git branch: 'main',
+                    url: 'https://github.com/Chandrika1112/devops-project-3.git'
             }
         }
 
-        stage('Build Image') {
+        stage('Verify Files') {
             steps {
-                sh 'docker build -t $IMAGE_NAME:latest .'
+                sh '''
+                echo "Workspace:"
+                pwd
+                ls -l
+                echo "Index.html content:"
+                cat index.html
+                '''
             }
         }
 
-        stage('Docker Login') {
+        stage('Build Docker Image') {
             steps {
-                withCredentials([string(credentialsId: "dockerhub-password", variable: "PASS")]) {
-                    sh 'echo $PASS | docker login -u chandrika2002 --password-stdin'
-                }
+                sh 'docker build -t chandrika2002/devops-project-3:latest .'
             }
         }
 
-        stage('Push Image') {
+        stage('Deploy Docker Container') {
             steps {
-                sh 'docker push $IMAGE_NAME:latest'
-            }
-        }
-
-        stage('Deploy to K8s') {
-            steps {
-                sh 'kubectl apply -f k8s/deployment.yaml'
-                sh 'kubectl apply -f k8s/service.yaml'
+                sh '''
+                docker stop devops-project-3 || true
+                docker rm devops-project-3 || true
+                docker run -d -p 80:80 --name devops-project-3 chandrika2002/devops-project-3:latest
+                '''
             }
         }
     }
 
     post {
         success {
-            echo "✅ Deployment Successful"
+            echo '✅ CI/CD completed successfully'
         }
         failure {
-            echo "❌ Deployment Failed"
+            echo '❌ CI/CD failed'
         }
     }
 }
